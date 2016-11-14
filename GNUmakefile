@@ -161,7 +161,7 @@ QEMUOPTS += -drive file=$(OBJDIR)/kern/kernel.img,format=raw,if=none,id=kernel \
 	    -device piix4-ide,id=piix4-ide -device ide-hd,drive=kernel,bus=piix4-ide.0
 IMAGES = $(OBJDIR)/kern/kernel.img
 QEMUOPTS += -smp $(CPUS)
-# Use the builtin SATA controller for the file system
+# Use an NVMe controller for the file system
 QEMUOPTS += -drive file=$(OBJDIR)/fs/fs.img,format=raw,if=none,id=fs \
 	    -device nvme,drive=fs,serial=jos
 IMAGES += $(OBJDIR)/fs/fs.img

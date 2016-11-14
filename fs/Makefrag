@@ -11,6 +11,14 @@ USERAPPS := 		$(OBJDIR)/user/init
 FSIMGTXTFILES :=	fs/newmotd \
 			fs/motd
 
+USERAPPS :=		$(USERAPPS) \
+			$(OBJDIR)/user/daytime \
+			$(OBJDIR)/user/sntp \
+			$(OBJDIR)/user/httpd
+
+FSIMGTXTFILES :=	$(FSIMGTXTFILES) \
+			fs/index.html \
+			fs/dashboard.html
 
 USERAPPS :=		$(USERAPPS) \
 			$(OBJDIR)/user/cat \

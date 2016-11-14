@@ -92,6 +92,10 @@ CFLAGS += -Wall -Wno-format -Wno-unused -Werror -gstabs -m32
 # mon_backtrace()'s function prologue on gcc version: (Debian 4.7.2-5) 4.7.2
 CFLAGS += -fno-tree-ch
 
+CFLAGS += -I$(TOP)/net/lwip/include \
+	  -I$(TOP)/net/lwip/include/ipv4 \
+	  -I$(TOP)/net/lwip/jos
+
 # Add -fno-stack-protector if the option exists.
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
 GOCFLAGS += -m32 -static -Werror -nostdlib -nostartfiles -nodefaultlibs -fno-split-stack
@@ -142,9 +146,13 @@ include kern/Makefrag
 include lib/Makefrag
 include user/Makefrag
 include fs/Makefrag
+include net/Makefrag
 
 
 CPUS ?= 1
+
+PORT7	:= $(shell expr $(GDBPORT) + 1)
+PORT80	:= $(shell expr $(GDBPORT) + 2)
 
 QEMUOPTS = -M q35 -serial mon:stdio -gdb tcp::$(GDBPORT)
 QEMUOPTS += $(shell if $(QEMU) -nographic -help | grep -q '^-D '; then echo '-D qemu.log'; fi)
@@ -157,6 +165,8 @@ QEMUOPTS += -smp $(CPUS)
 QEMUOPTS += -drive file=$(OBJDIR)/fs/fs.img,format=raw,if=none,id=fs \
 	    -device nvme,drive=fs,serial=jos
 IMAGES += $(OBJDIR)/fs/fs.img
+QEMUOPTS += -net user -net nic,model=e1000 -redir tcp:$(PORT7)::7 \
+	   -redir tcp:$(PORT80)::80 -redir udp:$(PORT7)::7 -net dump,file=qemu.pcap
 QEMUOPTS += $(QEMUEXTRA)
 
 .gdbinit: .gdbinit.tmpl
@@ -166,6 +176,8 @@ gdb:
 	$(GDB)
 
 pre-qemu: .gdbinit
+#	QEMU doesn't truncate the pcap file.  Work around this.
+	@rm -f qemu.pcap
 
 qemu: $(IMAGES) pre-qemu
 	$(QEMU) $(QEMUOPTS)
@@ -207,6 +219,7 @@ vbox: vmdk
 	VBoxManage modifyvm jos --ioapic on --hpet on --cpus 8
 	VBoxManage storagectl jos --name "NVMe" --add pcie --controller NVMe
 	VBoxManage storageattach jos --storagectl "NVMe" --port 0 --type hdd --medium $(OBJDIR)/fs/fs.vmdk --mtype immutable
+	VBoxManage modifyvm jos --nictype1 82540EM --macaddress1 525400123456
 #	VBoxManage modifyvm jos --uart1 0x3f8 4 --uartmode1 file /tmp/vbox.log
 
 # For deleting the build
@@ -278,6 +291,7 @@ tarball-pref: handin-check
 	git archive --prefix=lab$(LAB)/ --format=tar HEAD | gzip > lab$$SUF-handin.tar.gz
 
 # For test runs
+prep-net_%: override INIT_CFLAGS+=-DTEST_NO_NS
 
 prep-%:
 	$(V)$(MAKE) "INIT_CFLAGS=${INIT_CFLAGS} -DTEST=`case $* in *_*) echo $*;; *) echo user_$*;; esac`" $(IMAGES)
@@ -293,6 +307,23 @@ run-%-nox: prep-% pre-qemu
 
 run-%: prep-% pre-qemu
 	$(QEMU) $(QEMUOPTS)
+
+# For network connections
+which-ports:
+	@echo "Local port $(PORT7) forwards to JOS port 7 (echo server)"
+	@echo "Local port $(PORT80) forwards to JOS port 80 (web server)"
+
+nc-80:
+	nc localhost $(PORT80)
+
+nc-7:
+	nc localhost $(PORT7)
+
+telnet-80:
+	telnet localhost $(PORT80)
+
+telnet-7:
+	telnet localhost $(PORT7)
 
 # This magic automatically generates makefile dependencies
 # for header files included from C source files we compile,

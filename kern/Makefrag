@@ -45,6 +45,9 @@ KERN_SRCFILES +=	kern/mpentry.S \
 KERN_SRCFILES +=	kern/pci.c \
 			kern/nvme.c
 
+# Source files for LAB6
+KERN_SRCFILES +=	kern/e1000.c
+
 # Only build files if they exist.
 KERN_SRCFILES := $(wildcard $(KERN_SRCFILES))
 
@@ -92,6 +95,14 @@ KERN_BINFILES +=	user/testfile \
 			user/spawnhello \
 			user/icode \
 			fs/fs
+
+# Binary files for LAB6
+KERN_BINFILES +=	user/httpd \
+			user/echosrv \
+			user/echotest \
+			net/testoutput \
+			net/testinput \
+			net/ns
 
 # Binary files for LAB5
 KERN_BINFILES +=	user/testpteshare \

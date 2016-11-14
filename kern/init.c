@@ -78,6 +78,11 @@ i386_init(uint32_t magic, uint32_t addr)
 	// Start fs.
 	ENV_CREATE(fs_fs, ENV_TYPE_FS);
 
+#if !defined(TEST_NO_NS)
+	// Start ns.
+	ENV_CREATE(net_ns, ENV_TYPE_NS);
+#endif
+
 #if defined(TEST)
 	// Don't touch -- used by grading script!
 	ENV_CREATE(TEST, ENV_TYPE_USER);

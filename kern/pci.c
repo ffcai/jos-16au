@@ -6,6 +6,7 @@
 #include <kern/pcireg.h>
 #include <kern/pmap.h>
 #include <kern/nvme.h>
+#include <kern/e1000.h>
 
 // Flag to do "lspci" at bootup
 static int pci_show_devs = 1;

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>JOS Dashboard</title>
+<script src="https://www.gstatic.com/charts/loader.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
+<script type="text/javascript">
+google.charts.load('current', {'packages':['corechart', 'gauge']});
+google.charts.setOnLoadCallback(drawChart);
+function parseTSV(data) {
+  var lines = data.split('\n');
+  var dict = {};
+  for (var i = 0; i < lines.length; ++i) {
+    items = lines[i].split('\t');
+    if (items.length != 2)
+      continue;
+    dict[items[0].trim()] = parseInt(items[1].trim());
+  }
+  return dict;
+}
+
+function drawChart() {
+  var maxRows = 60;
+  var areaWidth = 600, areaHeight = 180;
+
+  var memAreaData = new google.visualization.DataTable();
+  memAreaData.addColumn('number', 'Time');
+  memAreaData.addColumn('number', 'Used');
+  var memAreaOptions = {
+    width: areaWidth,
+    height: areaHeight,
+    legend: {position: 'top'},
+    title: 'Memory'
+  };
+  var memAreaChart = new google.visualization.AreaChart($('#mem-area')[0]);
+
+  var memGaugeData = google.visualization.arrayToDataTable([
+    ['Label', 'Value'],
+    ['Memory', 0],
+  ]);
+  var memGaugeOptions = {
+    width: 400, height: areaHeight,
+    redFrom: 90, redTo: 100,
+    yellowFrom:75, yellowTo: 90,
+    minorTicks: 5
+  };
+  var memGaugeChart = new google.visualization.Gauge($('#mem-gauge')[0]);
+
+  var diskAreaData = new google.visualization.DataTable();
+  diskAreaData.addColumn('number', 'Time');
+  diskAreaData.addColumn('number', 'Blocks In');
+  diskAreaData.addColumn('number', 'Blocks Out');
+  var diskAreaOptions = {
+    width: areaWidth,
+    height: areaHeight,
+    legend: {position: 'top'},
+    title: 'Disk'
+  };
+  var diskAreaChart = new google.visualization.AreaChart($('#disk-area')[0]);
+
+  var netAreaData = new google.visualization.DataTable();
+  netAreaData.addColumn('number', 'Time');
+  netAreaData.addColumn('number', 'Packets In');
+  netAreaData.addColumn('number', 'Packets Out');
+  var netAreaOptions = {
+    width: areaWidth,
+    height: areaHeight,
+    legend: {position: 'top'},
+    title: 'Network'
+  };
+  var netAreaChart = new google.visualization.AreaChart($('#net-area')[0]);
+
+  function addRow(table, row) {
+    table.addRow(row);
+    var overflow = table.getNumberOfRows() - maxRows;
+    if (overflow > 0)
+      table.removeRow(0, overflow);
+  }
+
+  var baseline = null;
+  function watch() {
+    $.get("/sysinfo", function(data) {
+      console.log(data);
+      var info = parseTSV(data);
+
+      if (baseline) {
+        var uptime = info.uptime / 1000000000;
+
+        addRow(memAreaData, [uptime, info.totalpages - info.freepages]);
+        memAreaChart.draw(memAreaData, memAreaOptions);
+
+        var pressure = 100 - 100 * info.freepages / info.totalpages;
+        memGaugeData.setValue(0, 1, pressure.toFixed(1));
+        memGaugeChart.draw(memGaugeData, memGaugeOptions);
+
+        var inblocks = info.inblocks - baseline.inblocks;
+        var outblocks = info.outblocks - baseline.outblocks;
+        addRow(diskAreaData, [uptime, inblocks, outblocks]);
+        diskAreaChart.draw(diskAreaData, diskAreaOptions);
+
+        var inpackets = info.inpackets - baseline.inpackets;
+        var outpackets = info.outpackets - baseline.outpackets;
+        addRow(netAreaData, [uptime, inpackets, outpackets]);
+        var overflow = netAreaData.getNumberOfRows() - maxRows;
+        if (overflow > 0)
+          netAreaData.removeRow(0, overflow);
+        netAreaChart.draw(netAreaData, netAreaOptions);
+      }
+
+      baseline = info;
+      setTimeout(watch, 1000);
+    }, "text");
+  };
+
+  watch();
+}
+</script>
+</head>
+<body>
+<h1>JOS Dashboard</h1>
+<table>
+  <tr>
+    <td><div id="mem-area"></div></td>
+    <td><div id="mem-gauge"></div></td>
+  </tr>
+  <tr>
+    <td><div id="disk-area"></div></td>
+  </tr>
+  <tr>
+    <td><div id="net-area"></div></td>
+  </tr>
+</table>
+</body>
+</html>

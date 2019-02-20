@@ -13,6 +13,57 @@
 #include <kern/spinlock.h>
 #include <kern/sysinfo.h>
 
+extern void vector0();
+extern void vector1();
+extern void vector2();
+extern void vector3();
+extern void vector4();
+extern void vector5();
+extern void vector6();
+extern void vector7();
+extern void vector8();
+extern void vector9();
+extern void vector10();
+extern void vector11();
+extern void vector12();
+extern void vector13();
+extern void vector14();
+extern void vector15();
+extern void vector16();
+extern void vector17();
+extern void vector18();
+extern void vector19();
+extern void vector20();
+extern void vector21();
+extern void vector22();
+extern void vector23();
+extern void vector24();
+extern void vector25();
+extern void vector26();
+extern void vector27();
+extern void vector28();
+extern void vector29();
+extern void vector30();
+extern void vector31();
+extern void vector32();
+extern void vector33();
+extern void vector34();
+extern void vector35();
+extern void vector36();
+extern void vector37();
+extern void vector38();
+extern void vector39();
+extern void vector40();
+extern void vector41();
+extern void vector42();
+extern void vector43();
+extern void vector44();
+extern void vector45();
+extern void vector46();
+extern void vector47();
+extern void vector48();
+
+
 static struct Taskstate ts;
 
 /* For debugging, so print_trapframe can distinguish between printing
@@ -71,6 +122,55 @@ trap_init(void)
 	extern struct Segdesc gdt[];
 
 	// LAB 3: Your code here.
+    SETGATE(idt[0], 0, GD_KT, vector0, 0);
+    SETGATE(idt[1], 0, GD_KT, vector1, 0);
+    SETGATE(idt[2], 0, GD_KT, vector2, 0);
+    SETGATE(idt[3], 0, GD_KT, vector3, 3);
+    SETGATE(idt[4], 0, GD_KT, vector4, 0);
+    SETGATE(idt[5], 0, GD_KT, vector5, 0);
+    SETGATE(idt[6], 0, GD_KT, vector6, 0);
+    SETGATE(idt[7], 0, GD_KT, vector7, 0);
+    SETGATE(idt[8], 0, GD_KT, vector8, 0);
+    SETGATE(idt[9], 0, GD_KT, vector9, 0);
+    SETGATE(idt[10], 0, GD_KT, vector10, 0);
+    SETGATE(idt[11], 0, GD_KT, vector11, 0);
+    SETGATE(idt[12], 0, GD_KT, vector12, 0);
+    SETGATE(idt[13], 0, GD_KT, vector13, 0);
+    SETGATE(idt[14], 0, GD_KT, vector14, 0);
+    SETGATE(idt[15], 0, GD_KT, vector15, 0);
+    SETGATE(idt[16], 0, GD_KT, vector16, 0);
+    SETGATE(idt[17], 0, GD_KT, vector17, 0);
+    SETGATE(idt[18], 0, GD_KT, vector18, 0);
+    SETGATE(idt[19], 0, GD_KT, vector19, 0);
+    SETGATE(idt[20], 0, GD_KT, vector20, 0);
+    SETGATE(idt[21], 0, GD_KT, vector21, 0);
+    SETGATE(idt[22], 0, GD_KT, vector22, 0);
+    SETGATE(idt[23], 0, GD_KT, vector23, 0);
+    SETGATE(idt[24], 0, GD_KT, vector24, 0);
+    SETGATE(idt[25], 0, GD_KT, vector25, 0);
+    SETGATE(idt[26], 0, GD_KT, vector26, 0);
+    SETGATE(idt[27], 0, GD_KT, vector27, 0);
+    SETGATE(idt[28], 0, GD_KT, vector28, 0);
+    SETGATE(idt[29], 0, GD_KT, vector29, 0);
+    SETGATE(idt[30], 0, GD_KT, vector30, 0);
+    SETGATE(idt[31], 0, GD_KT, vector31, 0);
+    SETGATE(idt[32], 0, GD_KT, vector32, 0);
+    SETGATE(idt[33], 0, GD_KT, vector33, 0);
+    SETGATE(idt[34], 0, GD_KT, vector34, 0);
+    SETGATE(idt[35], 0, GD_KT, vector35, 0);
+    SETGATE(idt[36], 0, GD_KT, vector36, 0);
+    SETGATE(idt[37], 0, GD_KT, vector37, 0);
+    SETGATE(idt[38], 0, GD_KT, vector38, 0);
+    SETGATE(idt[39], 0, GD_KT, vector39, 0);
+    SETGATE(idt[40], 0, GD_KT, vector40, 0);
+    SETGATE(idt[41], 0, GD_KT, vector41, 0);
+    SETGATE(idt[42], 0, GD_KT, vector42, 0);
+    SETGATE(idt[43], 0, GD_KT, vector43, 0);
+    SETGATE(idt[44], 0, GD_KT, vector44, 0);
+    SETGATE(idt[45], 0, GD_KT, vector45, 0);
+    SETGATE(idt[46], 0, GD_KT, vector46, 0);
+    SETGATE(idt[47], 0, GD_KT, vector47, 0);
+    SETGATE(idt[48], 0, GD_KT, vector48, 3);
 
 	// Per-CPU setup 
 	trap_init_percpu();
@@ -171,6 +271,26 @@ trap_dispatch(struct Trapframe *tf)
 {
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
+    if (tf->tf_trapno == T_PGFLT) {
+        print_trapframe(tf);
+        page_fault_handler(tf);
+        return;
+    } else if (tf->tf_trapno == T_BRKPT) {
+        print_trapframe(tf);
+        //return;
+        while (1)
+            monitor(NULL);
+        return;
+    } else if (tf->tf_trapno == T_SYSCALL) {
+        print_trapframe(tf);
+        syscall(tf->tf_regs.reg_eax,
+                tf->tf_regs.reg_edx,
+                tf->tf_regs.reg_ecx,
+                tf->tf_regs.reg_ebx,
+                tf->tf_regs.reg_edi,
+                tf->tf_regs.reg_esi);
+        return;
+    }
 
 	// Handle spurious interrupts
 	// The hardware sometimes raises these because of noise on the
@@ -272,6 +392,8 @@ page_fault_handler(struct Trapframe *tf)
 	// Handle kernel-mode page faults.
 
 	// LAB 3: Your code here.
+	if ((tf->tf_cs & 3) == 0)
+	    panic("a page fault happens in kernel mode!!!");
 
 	// We've already handled kernel-mode exceptions, so if we get here,
 	// the page fault happened in user mode.

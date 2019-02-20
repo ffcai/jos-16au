@@ -23,6 +23,8 @@ sys_cputs(const char *s, size_t len)
 	// LAB 3: Your code here.
 
 	// Print the string supplied by the user.
+    user_mem_assert(curenv, s, len, PTE_U | PTE_P);
+
 	cprintf("%.*s", len, s);
 }
 
@@ -89,7 +91,29 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 	//   allocated!
 
 	// LAB 3: Your code here.
-	panic("sys_page_alloc not implemented");
+	//panic("sys_page_alloc not implemented");
+    struct Env *e;
+    if (envid2env(envid, &e, 1) < 0)
+        return -E_BAD_ENV;
+
+    if ((uint32_t)va >= UTOP || ((uint32_t)va & (PGSIZE - 1)))
+        return -E_INVAL;
+
+    if ((perm & (PTE_U | PTE_P)) != (PTE_U | PTE_P))
+        return -E_INVAL;
+    if (perm & ~PTE_SYSCALL)
+        return -E_INVAL;
+
+    struct PageInfo *pp;
+    if ((pp = page_alloc(ALLOC_ZERO)) == 0)
+        return -E_NO_MEM;
+
+    if (page_insert(e->env_pgdir, pp, va, perm) != 0) {
+        //page_free(pp); ??????
+        return -E_NO_MEM;
+    }
+
+    return 0;
 }
 
 // Map the page of memory at 'srcva' in srcenvid's address space
@@ -120,7 +144,39 @@ sys_page_map(envid_t srcenvid, void *srcva,
 	//   check the current permissions on the page.
 
 	// LAB 3: Your code here.
-	panic("sys_page_map not implemented");
+	//panic("sys_page_map not implemented");
+    struct Env *srcenv, *dstenv;
+    if (envid2env(srcenvid, &srcenv, 1) < 0)
+        return -E_BAD_ENV;
+    if (envid2env(dstenvid, &dstenv, 1) < 0)
+        return -E_BAD_ENV;
+
+    if ((uint32_t)srcva >= UTOP || ((uint32_t)srcva & (PGSIZE - 1)))
+        return -E_INVAL;
+    if ((uint32_t)dstva >= UTOP || ((uint32_t)dstva & (PGSIZE - 1)))
+        return -E_INVAL;
+
+    if ((perm & (PTE_U | PTE_P)) != (PTE_U | PTE_P))
+        return -E_INVAL;
+    if (perm & ~PTE_SYSCALL)
+        return -E_INVAL;
+
+
+
+    struct PageInfo *pp;
+    pte_t *p_pte;
+    if ((pp = page_lookup(srcenv->env_pgdir, srcva, &p_pte)) == 0)
+        return -E_INVAL;
+
+    if ((perm & PTE_W) && (((*p_pte) & PTE_W) == 0))
+        return -E_INVAL;
+
+
+    if (page_insert(dstenv->env_pgdir, pp, dstva, perm) != 0)
+        return -E_NO_MEM;
+
+
+    return 0;
 }
 
 // Unmap the page of memory at 'va' in the address space of 'envid'.
@@ -136,7 +192,18 @@ sys_page_unmap(envid_t envid, void *va)
 	// Hint: This function is a wrapper around page_remove().
 
 	// LAB 3: Your code here.
-	panic("sys_page_unmap not implemented");
+	//panic("sys_page_unmap not implemented");
+    struct Env *e;
+    if (envid2env(envid, &e, 1) < 0)
+        return -E_BAD_ENV;
+
+    if ((uint32_t)va >= UTOP || ((uint32_t)va & (PGSIZE - 1)))
+        return -E_INVAL;
+
+    page_remove(e->env_pgdir, va);
+
+    return 0;
+
 }
 
 // Dispatches to the correct kernel function, passing the arguments.
@@ -147,11 +214,34 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	// Return any appropriate return value.
 	// LAB 3: Your code here.
 
-	panic("syscall not implemented");
+    //panic("syscall not implemented");
 
 	switch (syscallno) {
+        case SYS_cputs:
+            sys_cputs((const char *)a1, (size_t)a2);
+            break;
+        case SYS_cgetc:
+            sys_cgetc();
+            break;
+	    case SYS_getenvid:
+            sys_getenvid();
+            break;
+        case SYS_env_destroy:
+            curenv->env_tf.tf_regs.reg_eax = sys_env_destroy(a1);
+            break;
+        case SYS_page_alloc:
+            curenv->env_tf.tf_regs.reg_eax = sys_page_alloc(a1, (void *)a2, a3);
+            break;
+        case SYS_page_map:
+            curenv->env_tf.tf_regs.reg_eax = sys_page_map(a1, (void *)a2, a3, (void *)a4, a5);
+            break;
+        case SYS_page_unmap:
+            curenv->env_tf.tf_regs.reg_eax = sys_page_unmap(a1, (void *)a2);
+            break;
 	default:
 		return -E_INVAL;
 	}
+
+    return 0;
 }
 

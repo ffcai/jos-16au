@@ -378,7 +378,7 @@ load_icode(struct Env *e, uint8_t *binary)
         }
     }
 
-    e->env_tf.tf_eip = 0x800020;
+    e->env_tf.tf_eip = elfh->e_entry;
 
 
 	// Now map one page for the program's initial stack
@@ -498,6 +498,8 @@ env_pop_tf(struct Trapframe *tf)
 	// Record the CPU we are running on for user-space debugging
 	curenv->env_cpunum = cpunum();
 
+    unlock_kernel();
+
 	asm volatile(
 		"\tmovl %0,%%esp\n"
 		"\tpopal\n"
@@ -544,6 +546,8 @@ env_run(struct Env *e)
 		curenv->env_runs++;
 		lcr3(PADDR(curenv->env_pgdir));
 	}
+
+	//unlock_kernel();
 
 	env_pop_tf(&(e->env_tf));
 

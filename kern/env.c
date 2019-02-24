@@ -366,7 +366,7 @@ load_icode(struct Env *e, uint8_t *binary)
         }
     }
 
-    e->env_tf.tf_eip = 0x800020;
+    e->env_tf.tf_eip = elfh->e_entry;
 
 
 	// Now map one page for the program's initial stack

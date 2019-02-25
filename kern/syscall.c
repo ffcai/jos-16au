@@ -357,7 +357,7 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
             sys_cgetc();
             break;
 	    case SYS_getenvid:
-            sys_getenvid();
+            curenv->env_tf.tf_regs.reg_eax = sys_getenvid();
             break;
         case SYS_env_destroy:
             curenv->env_tf.tf_regs.reg_eax = sys_env_destroy(a1);

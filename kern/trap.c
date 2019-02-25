@@ -209,7 +209,7 @@ trap_init_percpu(void)
 
 	// Initialize the TSS slot of the gdt.
 
-	gdt[(GD_TSS0 >> 3) + i] = SEG16(STS_T32A, (uint32_t) (&ts),
+	gdt[(GD_TSS0 >> 3) + i] = SEG16(STS_T32A, (uint32_t) (&(thiscpu->cpu_ts)),
 					sizeof(struct Taskstate) - 1, 0);
 	gdt[(GD_TSS0 >> 3) + i].sd_s = 0;
 
@@ -273,17 +273,14 @@ trap_dispatch(struct Trapframe *tf)
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
     if (tf->tf_trapno == T_PGFLT) {
-        print_trapframe(tf);
         page_fault_handler(tf);
         return;
     } else if (tf->tf_trapno == T_BRKPT) {
-        print_trapframe(tf);
         //return;
         while (1)
             monitor(NULL);
         return;
     } else if (tf->tf_trapno == T_SYSCALL) {
-        print_trapframe(tf);
         syscall(tf->tf_regs.reg_eax,
                 tf->tf_regs.reg_edx,
                 tf->tf_regs.reg_ecx,

@@ -229,7 +229,17 @@ sys_exofork(void)
 	// will appear to return 0.
 
 	// LAB 4: Your code here.
-	panic("sys_exofork not implemented");
+    int r;
+    struct Env *newenv;
+
+    if ((r = env_alloc(&newenv, curenv->env_id)) < 0)
+        return r;
+
+    newenv->env_status = ENV_NOT_RUNNABLE;
+    memcpy(&newenv->env_tf, &curenv->env_tf, sizeof(curenv->env_tf));
+    newenv->env_tf.tf_regs.reg_eax = 0;
+
+    return newenv->env_id;
 }
 
 // Set envid's env_status to status, which must be ENV_RUNNABLE
@@ -249,7 +259,18 @@ sys_env_set_status(envid_t envid, int status)
 	// envid's status.
 
 	// LAB 4: Your code here.
-	panic("sys_env_set_status not implemented");
+    int r;
+    struct Env *env;
+
+    if (status != ENV_RUNNABLE && status !=ENV_NOT_RUNNABLE)
+        return -E_INVAL;
+
+    if ((r = envid2env(envid, &env, 1)) < 0)
+        return r;
+
+    env->env_status = status;
+
+    return 0;
 }
 
 // Set the page fault upcall for 'envid' by modifying the corresponding struct
@@ -346,9 +367,6 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	// Call the function corresponding to the 'syscallno' parameter.
 	// Return any appropriate return value.
 	// LAB 3: Your code here.
-
-    //panic("syscall not implemented");
-
 	switch (syscallno) {
         case SYS_cputs:
             sys_cputs((const char *)a1, (size_t)a2);
@@ -373,6 +391,12 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
             break;
         case SYS_yield:
             sys_yield();
+            break;
+        case SYS_exofork:
+            curenv->env_tf.tf_regs.reg_eax = sys_exofork();
+            break;
+        case SYS_env_set_status:
+            curenv->env_tf.tf_regs.reg_eax = sys_env_set_status((envid_t)a1, a2);
             break;
 	default:
 		return -E_INVAL;

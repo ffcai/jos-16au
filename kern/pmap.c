@@ -669,6 +669,7 @@ static uintptr_t user_mem_check_addr;
 // Returns 0 if the user program can access this range of addresses,
 // and -E_FAULT otherwise.
 //
+/*
 int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
@@ -680,7 +681,7 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 	uintptr_t i_pgdir_end = PDX(va + len);
 
 	pte_t *table;
-	for (uint32_t va_i = va_start; va_i <= va_end; va_i += PGSIZE) {
+	for (uint32_t va_i = va_start; va_i < va_end; va_i += PGSIZE) {
 		if (va_i >= ULIM ||
 				((*pgdir_walk(env->env_pgdir, (const void *)va_i, 0)) & (perm | PTE_P)) != (perm | PTE_P)) {
 		    if (va_i == va_start) {
@@ -696,6 +697,37 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 
 
 	return 0;
+}
+
+ */
+
+
+static inline int
+_user_mem_check(struct Env *env, const void* va, int perm)
+{
+    pte_t *pte = pgdir_walk(env->env_pgdir, va, 0);
+    if (pte == NULL || (*pte & (perm | PTE_P)) != (perm | PTE_P)) {
+        user_mem_check_addr = (uintptr_t) va;
+        return -E_FAULT;
+    }
+    return 0;
+}
+
+int
+user_mem_check(struct Env *env, const void *va, size_t len, int perm)
+{
+    uintptr_t va_begin = (uintptr_t) va, va_end = va_begin + len;
+
+    int ret = _user_mem_check(env, va, perm);
+    if (ret < 0)
+        return ret;
+
+    va_begin = ROUNDUP(va_begin, PGSIZE);
+    for (; va_begin < va_end; va_begin += PGSIZE)
+        if ((ret = _user_mem_check(env, (void *) va_begin, perm)) < 0)
+            return ret;
+
+    return ret;
 }
 
 //

@@ -146,7 +146,6 @@ sys_page_map(envid_t srcenvid, void *srcva,
 	//   check the current permissions on the page.
 
 	// LAB 3: Your code here.
-	//panic("sys_page_map not implemented");
     struct Env *srcenv, *dstenv;
     if (envid2env(srcenvid, &srcenv, 1) < 0)
         return -E_BAD_ENV;

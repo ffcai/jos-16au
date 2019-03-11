@@ -11,12 +11,14 @@
 // Custom page fault handler - if faulting page is copy-on-write,
 // map in our own private writable copy.
 //
+
 static void
 pgfault(struct UTrapframe *utf)
 {
 	void *addr = (void *) utf->utf_fault_va;
 	uint32_t err = utf->utf_err;
 	int r;
+	void *va = ROUNDDOWN(addr, PGSIZE);
 
 	// Check that the faulting access was (1) a write, and (2) to a
 	// copy-on-write page.  If not, panic.
@@ -33,14 +35,13 @@ pgfault(struct UTrapframe *utf)
 	//   You should make three system calls.
 
 	// LAB 4: Your code here.
-    unsigned pn = (unsigned)addr >> PGSHIFT;
-    if (!((err == FEC_WR) && (uvpt[pn] & PTE_COW)))
-        panic("the faulting access %x was not a write or copy-on-write: err %x, perm %x",
-              addr, err, uvpt[pn]);
+    if (!((err & FEC_WR) && (uvpt[PGNUM(va)] & PTE_COW)))
+        panic("The faulting access %x was not a write or copy-on-write", addr);
+
     if ((r = sys_page_alloc(0, PFTEMP, PTE_P|PTE_U|PTE_W)) < 0)
         panic("sys_page_alloc: %e", r);
-    memmove(PFTEMP, addr, PGSIZE);
-    if ((r = sys_page_map(0, PFTEMP, 0, addr, PTE_P|PTE_U|PTE_W)) < 0)
+    memmove(PFTEMP, va, PGSIZE);
+    if ((r = sys_page_map(0, PFTEMP, 0, va, PTE_P|PTE_U|PTE_W)) < 0)
         panic("sys_page_map: %e", r);;
     if ((r = sys_page_unmap(0, PFTEMP)) < 0)
         panic("sys_page_unmap: %e", r);
@@ -106,11 +107,12 @@ fork(void)
 	uint8_t *addr;
 	int r;
 
-	set_pgfault_handler(pgfault);
+	set_pgfault_handler(&pgfault);
 
 	envid = sys_exofork();
 	if (envid < 0)
 		panic("sys_exofork: %e", envid);
+
 	if (envid == 0) {
 		// We're the child
 		thisenv = &envs[ENVX(sys_getenvid())];
@@ -118,23 +120,18 @@ fork(void)
 	}
 
 	// We're the parent
-	for (int i = 0; i < (UTOP >> PTSHIFT); i++) {
-		if (uvpd[i] & PTE_P) {
-			for (int j = 0; j < NPTENTRIES; j++) {
-			    unsigned pn = i * NPTENTRIES + j;
-			    if (pn == UXSTACKTOP)
-			        break;
-			    if (uvpt[pn] & PTE_P)
-			        duppage(envid, pn);
-			}
-		}
+    for (addr = 0; addr < (uint8_t *)USTACKTOP; addr += PGSIZE) {
+        // Not efficient loop!!!
+	    if ((uvpd[PDX(addr)] & PTE_P) && (uvpt[PGNUM(addr)] & PTE_P))
+	        duppage(envid, PGNUM(addr));
 	}
 
     // Allocate a new page for the child's user exception stack.
-    if ((r = sys_page_alloc(envid, (void *)(UXSTACKTOP - PGSIZE), PTE_P|PTE_U|PTE_W)) < 0)
+    if ((r = sys_page_alloc(envid, (void *)(UXSTACKTOP - PGSIZE), PTE_U|PTE_W|PTE_P)) < 0)
         panic("sys_page_alloc: %e", r);
 
-	sys_env_set_pgfault_upcall(envid, pgfault);
+	if ((r = sys_env_set_pgfault_upcall(envid, thisenv->env_pgfault_upcall)) < 0)
+	    panic("sys_env_set_pgfault_upcall: %e", r);
 
 	if ((r = sys_env_set_status(envid, ENV_RUNNABLE)) < 0) {
 		panic("sys_env_set_status %e", r);

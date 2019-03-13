@@ -355,12 +355,12 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
         return -E_IPC_NOT_RECV;
 
     env->env_ipc_recving = 0;
-    env->env_ipc_from = sys_getenvid();
+    env->env_ipc_from = curenv->env_id;
     env->env_ipc_value = value;
     env->env_ipc_perm = 0;
 
     if (srcva < (void *)UTOP && env->env_ipc_dstva < (void *)UTOP) {
-        if ((r = sys_page_map(0, srcva, envid, env->env_ipc_dstva, 0)) < 0)
+        if ((r = sys_page_map(0, srcva, envid, env->env_ipc_dstva, perm)) < 0)
             return r;
         env->env_ipc_perm = perm;
     }

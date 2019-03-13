@@ -300,7 +300,7 @@ static int
 sys_sysinfo(struct sysinfo *info)
 {
 	// LAB 4: Your code here.
-	panic("sys_sysinfo not implemented");
+    return sysinfo(info);
 }
 
 // Try to send 'value' to the target env 'envid'.
@@ -345,7 +345,30 @@ static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
 	// LAB 4: Your code here.
-	panic("sys_ipc_try_send not implemented");
+    int r;
+    struct Env *env;
+
+    if ((r = envid2env(envid, &env, 0)) < 0)
+        return r;
+
+    if (!env->env_ipc_recving)
+        return -E_IPC_NOT_RECV;
+
+    env->env_ipc_recving = 0;
+    env->env_ipc_from = sys_getenvid();
+    env->env_ipc_value = value;
+    env->env_ipc_perm = 0;
+
+    if (srcva < (void *)UTOP && env->env_ipc_dstva < (void *)UTOP) {
+        if ((r = sys_page_map(0, srcva, envid, env->env_ipc_dstva, 0)) < 0)
+            return r;
+        env->env_ipc_perm = perm;
+    }
+
+    env->env_status = ENV_RUNNABLE;
+    env->env_tf.tf_regs.reg_eax = 0;
+
+    return 0;
 }
 
 // Block until a value is ready.  Record that you want to receive
@@ -363,7 +386,13 @@ static int
 sys_ipc_recv(void *dstva)
 {
 	// LAB 4: Your code here.
-	panic("sys_ipc_recv not implemented");
+    if (dstva < (void *)UTOP && PGOFF(dstva))
+        return -E_INVAL;
+
+	curenv->env_ipc_recving = 1;
+	curenv->env_ipc_dstva = dstva;
+	curenv->env_status = ENV_NOT_RUNNABLE;
+	sched_yield();
 	return 0;
 }
 
@@ -407,6 +436,15 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
             break;
         case SYS_env_set_pgfault_upcall:
             curenv->env_tf.tf_regs.reg_eax = sys_env_set_pgfault_upcall((envid_t)a1, (void *)a2);
+            break;
+        case SYS_sysinfo:
+            curenv->env_tf.tf_regs.reg_eax = sys_sysinfo((struct sysinfo *)a1);
+            break;
+        case SYS_ipc_try_send:
+            curenv->env_tf.tf_regs.reg_eax = sys_ipc_try_send((envid_t)a1, a2, (void *)a3, (unsigned)a4);
+            break;
+        case SYS_ipc_recv:
+            curenv->env_tf.tf_regs.reg_eax = sys_ipc_recv((void *)a1);
             break;
 	default:
 		return -E_INVAL;

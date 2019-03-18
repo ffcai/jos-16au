@@ -152,9 +152,9 @@ sys_page_map(envid_t srcenvid, void *srcva,
     if (envid2env(dstenvid, &dstenv, 1) < 0)
         return -E_BAD_ENV;
 
-    if ((uint32_t)srcva >= UTOP || ((uint32_t)srcva & (PGSIZE - 1)))
+    if ((uint32_t)srcva >= UTOP || PGOFF(srcva) != 0)
         return -E_INVAL;
-    if ((uint32_t)dstva >= UTOP || ((uint32_t)dstva & (PGSIZE - 1)))
+    if ((uint32_t)dstva >= UTOP || PGOFF(dstva) != 0)
         return -E_INVAL;
 
     if ((perm & (PTE_U | PTE_P)) != (PTE_U | PTE_P))
@@ -173,12 +173,60 @@ sys_page_map(envid_t srcenvid, void *srcva,
         return -E_INVAL;
 
 
-    if (page_insert(dstenv->env_pgdir, pp, dstva, perm) != 0)
+    if (page_insert(dstenv->env_pgdir, pp, dstva, perm) < 0)
         return -E_NO_MEM;
 
 
     return 0;
 }
+
+
+static int
+sys_page_map2(envid_t srcenvid, void *srcva,
+             envid_t dstenvid, void *dstva, int perm)
+{
+    // Hint: This function is a wrapper around page_lookup() and
+    //   page_insert() from kern/pmap.c.
+    //   Again, most of the new code you write should be to check the
+    //   parameters for correctness.
+    //   Use the third argument to page_lookup() to
+    //   check the current permissions on the page.
+
+    // LAB 3: Your code here.
+    struct Env *srcenv, *dstenv;
+    if (envid2env(srcenvid, &srcenv, 0) < 0)
+        return -E_BAD_ENV;
+    if (envid2env(dstenvid, &dstenv, 0) < 0)
+        return -E_BAD_ENV;
+
+    if ((uint32_t)srcva >= UTOP || PGOFF(srcva) != 0)
+        return -E_INVAL;
+    if ((uint32_t)dstva >= UTOP || PGOFF(dstva) != 0)
+        return -E_INVAL;
+
+    if ((perm & (PTE_U | PTE_P)) != (PTE_U | PTE_P))
+        return -E_INVAL;
+    if (perm & ~PTE_SYSCALL)
+        return -E_INVAL;
+
+
+
+    struct PageInfo *pp;
+    pte_t *p_pte;
+    if ((pp = page_lookup(srcenv->env_pgdir, srcva, &p_pte)) == 0)
+        return -E_INVAL;
+
+    if ((perm & PTE_W) && (((*p_pte) & PTE_W) == 0))
+        return -E_INVAL;
+
+
+    if (page_insert(dstenv->env_pgdir, pp, dstva, perm) < 0)
+        return -E_NO_MEM;
+
+
+    return 0;
+}
+
 
 // Unmap the page of memory at 'va' in the address space of 'envid'.
 // If no page is mapped, the function silently succeeds.
@@ -360,8 +408,10 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
     env->env_ipc_perm = 0;
 
     if (srcva < (void *)UTOP && env->env_ipc_dstva < (void *)UTOP) {
-        if ((r = sys_page_map(0, srcva, envid, env->env_ipc_dstva, perm)) < 0)
+
+        if ((r = sys_page_map2(0, srcva, envid, env->env_ipc_dstva, perm)) < 0)
             return r;
+
         env->env_ipc_perm = perm;
     }
 
